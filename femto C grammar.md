@@ -279,7 +279,8 @@ id가 언더바(_)로 시작하는 구조체 혹은 필드만 private합니다.
 필드와 메서드 접근은 .을 사용하며, 구조체 포인터는 자동 역참조됩니다.
 생성자와 소멸자, 역참조 복사는 특수 이름 __new, __delete, __copy 메서드를 쓸 수 있습니다.
 
-```struct T { id: type; id: type; }
+```
+struct T { id: type; id: type; }
 
 func (self: box T) __new(...): box T {...}
 func (self: box T) __delete(...) {...}
@@ -287,7 +288,8 @@ func (self: &T) __copy(...): box T {...}
 
 func (self: *T) id(...) {...}
 func (self: &T) id(...) {...}
-func (self: &mut T) id(...) {...}```
+func (self: &mut T) id(...) {...}
+```
 
 
 
