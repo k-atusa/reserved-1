@@ -300,12 +300,14 @@ try catch문은 스택 되감기를 하기에 느립니다.
 심각한 오류만 try, catch, raise (box T만 던지기 가능)로 처리합니다.
 try 블록 안에서 명시적으로 raise되는 모든 예외의 타입을 catch에서 받아야 합니다.
 예외 객체 err.e {code: int; msg: box []u8}를 제공할 예정입니다.
-```try {
+```
+try {
     raise id;
     raise new T(...);
 } catch (var e: box T) {
     ...
-}```
+}
+```
 
 ## 12. 모듈
 
@@ -317,10 +319,12 @@ include name;처럼 사용합니다.
 
 주석은 ```//, /* */```으로 달며, #order로 컴파일러에게 직접 명령을 내릴 수 있습니다.
 
-```#raw_asm {...}```
-```#raw_llvm {...}```
-```#raw_c {...}```
-```#define {...}```
-```#enum {...}```
+```
+#raw_asm {...}
+#raw_llvm {...}
+#raw_c {...}
+#define {...}
+#enum {...}
+```
 
 ## 14. 예제 코드
