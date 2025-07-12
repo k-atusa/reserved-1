@@ -1,147 +1,71 @@
-// main.fc 파일
+include std;
 
-include std; // 표준 라이브러리 포함
-
-// 에러 객체 (femto C 자체 제공 예정이라고 언급됨)
-// 실제 구현에서는 이 구조체가 내장되어 있을 것입니다.
-struct Err {
-    code: int;
-    msg: box []u8;
+struct Node<T> {
+    prev: *Node<T>; // 이전 노드에 대한 원시 포인터
+    next: ?box Node<T>; // 실제 소유권은 한 방향으로만 흐름
+    value: T;
 }
 
-// 사용자 정의 데이터 구조체
-// Point 구조체는 x, y 좌표를 가집니다.
-struct Point {
-    x: i32;
-    y: i32;
+func (self: box Node<T>) __new(v: T): box Node<T> {
+    self.prev = void;
+    self.next = void;
+    self.value = v;
+    return self;
 }
 
-// Point 구조체에 대한 생성자
-func (self: box Point) __new(x_val: i32, y_val: i32): box Point {
-    // new T(...) 방식으로 사용됨
-    var new_point: box Point = new Point;
-    new_point.x = x_val;
-    new_point.y = y_val;
-    std.print_line("Point 객체 생성됨.");
-    return new_point;
+struct LinkedList<T> {
+    head: ?box Node<T>; // 머리 노드를 소유
+    tail: *Node<T>; // 꼬리 노드에 대한 포인터
+    length: int;
 }
 
-// Point 구조체에 대한 소멸자 (예제용)
-func (self: box Point) __delete() {
-    std.print_line("Point 객체 소멸됨.");
-    // 실제 메모리 해제는 box의 소유권 시스템에 의해 자동 처리됩니다.
+func (self: box LinkedList<T>) __new(): box LinkedList<T> {
+    self.head = void;
+    self.tail = void;
+    self.length = 0;
+    return self;
 }
 
-
-// 동적 배열(슬라이스)을 처리하는 함수
-// 이 함수는 가변 참조를 받아 배열의 요소를 수정하고, 슬라이스를 반환합니다.
-func process_dynamic_array(arr: &mut []i32, scale: i32): &[]i32 {
-    std.print_line("process_dynamic_array 함수 시작.");
-    defer std.print_line("process_dynamic_array 함수 종료."); // defer 예시
-
-    for (var i: int = 0; i < arr.len; i = i + 1) { // 배열의 길이 사용
-        arr[i] = arr[i] * scale; // 요소 수정
+func (self: &LinkedList<T>) push_back_(value: T) {
+    var node = new Node<T>(value); // 새 노드 box Node<T> 생성
+    if (self.length == 0) {
+        self.tail = (node as *Node<T>);
+        self.head = node; // 소유권 이동
+    } else {
+        var prev = self.tail; // *Node<T> 포인터
+        self.tail = (node as *Node<T>); // 리스트의 꼬리 정보 업데이트
+        node.prev = prev; // 노드의 prev 설정
+        prev.next = node; // 이때 노드의 소유권이 넘어간다 (컴파일러는 원시 포인터가 가르키는 구조체는 계속 존재할 것이라 가정)
     }
-
-    // 슬라이싱을 통해 배열의 일부를 반환
-    // 여기서는 전체 배열을 슬라이스로 반환합니다.
-    return &arr[0:arr.len];
+    self.length = self.length + 1;
 }
 
-// 안전하지 않은(unsafe) 작업을 포함하는 함수
-// 원시 포인터 산술 연산을 보여줍니다.
-func unsafe_pointer_manipulation?(ptr_val: *i32, offset: int): i32 {
-    std.print_line("unsafe_pointer_manipulation 함수 시작 (UNSAFE).");
-    // unsafe 함수 내부에서만 가능한 작업
-    var value_at_offset: i32;
-    value_at_offset = *(ptr_val + offset); // 원시 포인터 산술 연산 및 역참조
-
-    std.print_line("unsafe_pointer_manipulation 함수 종료 (UNSAFE).");
-    return value_at_offset;
+func (self: &LinkedList<T>) index_(i: int): *T {
+    if (i < 0 || i >= self.length || self.head == void) {
+        return void; // 잘못된 인덱스
+    }
+    var node: *Node<T> = (self.head as *Node<T>); // 소유권 규칙으로 인해 원시 포인터로 탐색
+    for (var pos = 0; pos < i; pos = pos + 1) {
+        if (node.next == void) {
+            return void;
+        }
+        node = (node.next as *Node<T>);
+    }
+    return &node.value;
 }
 
-// 예외 처리 예제 함수
-func perform_risky_operation(value: i32): int {
-    std.print_line("perform_risky_operation 함수 시작.");
-    if (value == 0) {
-        // Err 구조체를 이용한 예외 발생
-        raise new Err(100, new []u8("Value cannot be zero!")); // box T만 던지기 가능
+func main_(): void {
+    var list = new LinkedList<f64>; // box 변수라 main이 끝나며 free
+    list.push_back_(-16.8);
+    list.push_back_(205.8);
+    list.push_back_(3.14);
+    list.push_back_(0);
+    for (var i = 0; i < 5; i = i + 1) {
+        var v = list.index_(i); // *f64형 스택변수
+        if (v != void) {
+            std.print_float(*v);
+        } else {
+            std.print("invalid index!"); // i가 4일때 출력 예상
+        }
     }
-    std.print_line("perform_risky_operation 함수 종료.");
-    return 100 / value;
-}
-
-// 메인 함수
-func main(): int {
-    std.print_line("--- femto C 예제 프로그램 시작 ---");
-
-    // 1. 변수 선언 및 초기화
-    var my_int: i32 = 10;
-    const MY_CONST: i32 = 20; // 상수
-    std.print_line("my_int: " + std.to_string(my_int));
-    std.print_line("MY_CONST: " + std.to_string(MY_CONST));
-
-    // 2. box 타입과 소유권
-    { // 새로운 스코프 시작
-        std.print_line("Point 스코프 시작.");
-        // new를 사용하여 힙에 Point 객체 할당 및 소유권 획득
-        var p1: box Point = new Point(10, 20); // __new 메서드 호출
-        std.print_line("p1.x: " + std.to_string(p1.x) + ", p1.y: " + std.to_string(p1.y));
-
-        // p1의 소유권을 p2로 이동
-        var p2: box Point = p1; // 소유권 이동! p1은 더 이상 유효하지 않음
-        // std.print_line("p1.x: " + std.to_string(p1.x)); // 컴파일 오류 예상: p1은 이동됨
-        std.print_line("p2.x: " + std.to_string(p2.x) + ", p2.y: " + std.to_string(p2.y));
-
-        // p2는 스코프 끝에서 자동으로 소멸되고 메모리 해제(__delete 호출)
-        std.print_line("Point 스코프 종료.");
-    } // p2 소멸
-
-    // 3. 동적 배열 및 슬라이싱, 가변 참조
-    std.print_line("--- 동적 배열 및 슬라이싱 예제 ---");
-    // 힙에 동적 배열 할당
-    var dynamic_array: box []i32 = new [5]i32; // 크기 5의 i32 배열
-    dynamic_array[0] = 1;
-    dynamic_array[1] = 2;
-    dynamic_array[2] = 3;
-    dynamic_array[3] = 4;
-    dynamic_array[4] = 5;
-
-    std.print_line("원본 동적 배열:");
-    for (var i: int = 0; i < dynamic_array.len; i = i + 1) {
-        std.print(std.to_string(dynamic_array[i]) + " ");
-    }
-    std.print_line("");
-
-    // 가변 참조를 함수에 전달
-    var processed_slice: &[]i32 = process_dynamic_array(&mut dynamic_array, 10); // &mut 참조 전달
-
-    std.print_line("처리된 슬라이스 내용:");
-    for (var i: int = 0; i < processed_slice.len; i = i + 1) {
-        std.print(std.to_string(processed_slice[i]) + " ");
-    }
-    std.print_line("");
-
-    // 4. 원시 포인터 및 unsafe 함수 사용
-    std.print_line("--- 원시 포인터 및 unsafe 함수 예제 ---");
-    // box T -> *T 변환 (소유권은 여전히 dynamic_array에 있음)
-    var raw_ptr: *i32 = &dynamic_array[0]; // 배열의 첫 번째 요소 주소
-    var value_from_unsafe: i32 = unsafe_pointer_manipulation?(raw_ptr, 2); // unsafe 함수 호출
-    std.print_line("unsafe 함수를 통해 얻은 값 (dynamic_array[2]): " + std.to_string(value_from_unsafe));
-
-    // 5. 예외 처리 예제
-    std.print_line("--- 예외 처리 예제 ---");
-    try {
-        var result1: int = perform_risky_operation(5);
-        std.print_line("perform_risky_operation(5) 결과: " + std.to_string(result1));
-
-        var result2: int = perform_risky_operation(0); // 여기서 예외 발생
-        std.print_line("perform_risky_operation(0) 결과: " + std.to_string(result2)); // 이 줄은 실행되지 않음
-    } catch (var e: box Err) { // Err 타입의 예외를 받음
-        std.print_line("예외 발생! 코드: " + std.to_string(e.code) + ", 메시지: " + new []u8(e.msg));
-        // 에러 객체 내부의 box []u8 메시지를 문자열로 변환 필요 (std 라이브러리 가정)
-    }
-
-    std.print_line("--- femto C 예제 프로그램 종료 ---");
-    return 0;
 }
